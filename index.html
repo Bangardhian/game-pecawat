@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0614">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Cyberpunk Mech-Flight &amp; City Conquest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="cockpit-fx" aria-hidden="true"></div>
+    <div id="hud-top">
+      <div class="hud-col hud-left">
+        <section class="panel hp-panel" aria-label="Hull integrity">
+      <div class="label" data-i18n="hull">Hull</div>
+      <div class="bar"><div id="hp-fill"></div></div>
+      <div id="hp-val" class="num">100</div>
+      <div class="label" data-i18n="nitro">Nitro</div>
+      <div class="bar thin"><div id="nitro-fill"></div></div>
+    </section>
+        <div id="toolbar">
+          <button id="pause-btn" type="button" aria-label="Pause game">
+      <span></span><span></span>
+    </button>
+          <button id="cam-btn" type="button" aria-label="Switch camera (C)">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 8h4l1.5-2h7L17 8h4v11H3z"/><circle cx="12" cy="13" r="3.6"/>
+      </svg>
+    </button>
+          <button id="reload-btn" type="button" aria-label="Reload rockets (R)">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/>
+      </svg>
+    </button>
+        </div>
+        <div id="cam-badge" aria-live="polite"><kbd>C</kbd><span id="cam-name">Chase Cam</span></div>
+      </div>
+      <div class="hud-col hud-mid">
+        <section id="goal-panel" class="panel goal-panel" aria-label="Mission progress">
+      <div class="label" id="wave-label">Wave 1</div>
+      <div class="num big"><span id="kills">0</span><span class="dim"> / <span id="goal">4</span></span></div>
+    </section>
+        <section id="boss" class="panel goal-panel hidden" aria-label="Boss health">
+      <div class="label" data-i18n="overlord">Overlord drone</div>
+      <div class="bar boss-bar"><div id="boss-fill"></div></div>
+    </section>
+      </div>
+      <div class="hud-col hud-right">
+        <section class="panel stat-panel" aria-label="Score">
+      <div class="stat"><span class="label" data-i18n="score">Score</span><span id="score" class="num">0</span></div>
+      <div class="stat"><span class="label" data-i18n="crystals">Crystals</span><span id="coins" class="num amber">0</span></div>
+      <div class="stat"><span id="rocket-label" class="label">Rockets</span><span id="rockets" class="num pips">10/10</span></div>
+      <div id="reload-bar" class="bar thin hidden"><div id="reload-fill"></div></div>
+    </section>
+        <canvas id="radar" aria-label="Radar"></canvas>
+      </div>
+    </div>
+    
+    <div id="crosshair" aria-hidden="true"></div>
+    <div id="damage" aria-hidden="true"></div>
+    <div id="boost-fx" aria-hidden="true"></div>
+    <div id="powerups">
+      <span id="pu-shield" class="chip shield hidden">Shield <b>0s</b></span>
+      <span id="pu-multi" class="chip multi hidden">Triple laser <b>0s</b></span>
+    </div>
+    
+    
+    
+    <p id="keys-hint" data-i18n="hint">WASD / arrows to fly · Space to fire · Shift boost · F rocket · R reload · C camera · Esc pause</p>
+  </div>
+
+  <!-- Floating score / pickup text -->
+  <div id="floaters" aria-hidden="true"></div>
+  <div id="banner" aria-live="polite"></div>
+
+  <!-- Touch controls -->
+  <div id="touch" aria-hidden="true">
+    <div id="stick"><i class="arr up"></i><i class="arr dn"></i><i class="arr lf"></i><i class="arr rt"></i><div id="knob"></div></div>
+    
+    <button id="rocket-btn" type="button" aria-label="Launch homing rocket">Rocket</button>
+    <button id="boost-btn" type="button" aria-label="Nitro boost (hold)"><span>Boost</span></button>
+    <button id="fire" type="button" aria-label="Fire laser (hold)">Fire</button>
+  </div>
+
+  <!-- Start menu -->
+  <main id="menu" class="overlay">
+    <div class="card">
+      <h1><span data-i18n="title.main">Mech-Flight</span><small data-i18n="title.sub">City Conquest</small></h1>
+      <p class="lede" data-i18n="lede">Neon sprawl, hostile drones, one fighter. Survive four waves of drones, then take down the Overlord. Drones shoot back, so keep moving. Crystals repair your hull, and rockets hit hard.</p>
+      <dl class="controls">
+        <div class="desk"><dt data-i18n="cl.fly"></dt><dd data-i18n="cd.fly"></dd></div>
+        <div class="desk"><dt data-i18n="cl.fire"></dt><dd data-i18n="cd.fire"></dd></div>
+        <div class="desk"><dt data-i18n="cl.boost"></dt><dd data-i18n="cd.boost"></dd></div>
+        <div class="desk"><dt data-i18n="cl.rocket"></dt><dd data-i18n="cd.rocket"></dd></div>
+        <div class="desk"><dt data-i18n="cl.cam"></dt><dd data-i18n="cd.cam"></dd></div>
+        <div class="mob"><dt data-i18n="cl.fly"></dt><dd data-i18n="cm.fly"></dd></div>
+        <div class="mob"><dt data-i18n="cl.fire"></dt><dd data-i18n="cm.fire"></dd></div>
+        <div class="mob"><dt data-i18n="cl.boost"></dt><dd data-i18n="cm.boost"></dd></div>
+        <div class="mob"><dt data-i18n="cl.rocket"></dt><dd data-i18n="cm.rocket"></dd></div>
+        <div class="mob"><dt data-i18n="cl.cam"></dt><dd data-i18n="cm.cam"></dd></div>
+      </dl>
+      <button id="start" class="btn" type="button" data-i18n="launch">Launch</button>
+      <div class="row">
+        <button id="menu-garage" class="btn ghost small" type="button" data-i18n="garage">Garage</button>
+        <button id="menu-settings" class="btn ghost small" type="button" data-i18n="settings">Settings</button>
+      </div>
+      <p id="load-text" class="load">Loading models…</p>
+    </div>
+  </main>
+
+  <!-- Pause menu -->
+  <main id="pause" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <div class="card pause-card">
+      <div class="gh">
+        <h2 id="pause-title" data-i18n="paused">Paused</h2>
+        <div class="wallet"><span data-i18n="crystals">Crystals</span><b id="pause-bank">0</b></div>
+      </div>
+      <nav class="menu-list">
+        <button id="resume" class="btn" type="button"><span data-i18n="resume">Resume</span></button>
+        <button id="pause-restart" class="btn ghost" type="button"><span data-i18n="restart">Restart</span></button>
+        <button id="pause-levels" class="btn ghost" type="button"><span data-i18n="levels">Level Select</span></button>
+        <button id="pause-garage" class="btn ghost accent" type="button"><span data-i18n="garage">Garage</span></button>
+        <button id="pause-settings" class="btn ghost" type="button"><span data-i18n="settings">Settings</span></button>
+      </nav>
+      <p class="load" data-i18n="pause.hint">Esc or P resumes · M toggles sound</p>
+    </div>
+  </main>
+
+  <!-- End screen -->
+  <main id="end" class="overlay hidden">
+    <div class="card">
+      <h2 id="end-title">Systems down</h2>
+      <p id="end-sub" class="lede"></p>
+      <dl class="results">
+        <div><dt data-i18n="score">Score</dt><dd id="r-score">0</dd></div>
+        <div><dt data-i18n="r.drones">Drones</dt><dd id="r-kills">0</dd></div>
+        <div><dt data-i18n="crystals">Crystals</dt><dd id="r-coins">0</dd></div>
+      </dl>
+      <div class="row">
+        <button id="restart" class="btn" type="button" data-i18n="again">Fly again</button>
+        <button id="end-garage" class="btn ghost" type="button" data-i18n="garage">Garage</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Garage: paint + upgrades -->
+  <main id="garage" class="overlay side hidden" role="dialog" aria-modal="true" aria-labelledby="garage-title">
+    <div class="card garage-card">
+      <div class="gh">
+        <h2 id="garage-title" data-i18n="garage">Garage</h2>
+        <div class="wallet"><span data-i18n="crystals">Crystals</span><b id="g-bank">0</b></div>
+      </div>
+      <h3 data-i18n="g.paint">Body paint</h3>
+      <div id="g-paints" class="paints"></div>
+      <h3 data-i18n="g.upgrades">Upgrades</h3>
+      <div id="g-upgrades" class="upgrades"></div>
+      <p id="g-msg" class="g-msg" aria-live="polite"></p>
+      <button id="garage-back" class="btn ghost" type="button" data-i18n="back">Back</button>
+    </div>
+  </main>
+
+  <!-- Level select -->
+  <main id="levels" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="levels-title">
+    <div class="card">
+      <h2 id="levels-title" data-i18n="levels">Level Select</h2>
+      <p class="lede small" data-i18n="levels.sub">Start a new run from any wave you have reached.</p>
+      <div id="l-list" class="level-list"></div>
+      <button id="levels-back" class="btn ghost" type="button" data-i18n="back">Back</button>
+    </div>
+  </main>
+
+  <!-- Settings -->
+  <main id="settings" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="card">
+      <h2 id="settings-title" data-i18n="settings">Settings</h2>
+      <div class="setting"><span data-i18n="s.lang">Language</span><div id="s-lang" class="seg"></div></div>
+      <div class="setting"><span data-i18n="sound">Sound</span><button id="mute" class="btn ghost small" type="button">Sound: on</button></div>
+      <div id="s-vib-row" class="setting"><span data-i18n="vibration">Vibration</span><button id="s-vib" class="btn ghost small" type="button">on</button></div>
+      <div class="setting"><span data-i18n="progress">Progress</span><button id="s-reset" class="btn ghost small danger" type="button">Reset</button></div>
+      <p id="s-note" class="g-msg" aria-live="polite"></p>
+      <button id="settings-back" class="btn ghost" type="button" data-i18n="back">Back</button>
+    </div>
+  </main>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
