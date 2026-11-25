@@ -69,8 +69,27 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const rand = (a, b) => a + Math.random() * (b - a);
 const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
 const TAU = Math.PI * 2;
-const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-if (isTouch) document.body.classList.add('touch');
+/* ---------- Input-mode detection ----------
+   isMobileDevice: real phone/tablet (static; drives renderer/perf choices)
+   isTouch:        current control scheme (dynamic; drives UI + instructions) */
+const _mq = (q) => matchMedia(q).matches;
+const isMobileDevice =
+  navigator.userAgentData?.mobile === true ||
+  /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(navigator.userAgent || '') ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||      // iPadOS pretends to be a Mac
+  (navigator.maxTouchPoints > 0 && _mq('(hover: none) and (pointer: coarse)')  // small touch-only viewport
+     && Math.min(innerWidth, innerHeight) <= 820);
+
+let isTouch = isMobileDevice;                 // desktop/keyboard by default on laptops
+document.body.classList.toggle('touch', isTouch);
+
+// Switch control scheme at runtime and refresh the instruction text.
+function setControlMode(touch) {
+  if (touch === isTouch) return;
+  isTouch = touch;
+  document.body.classList.toggle('touch', touch);
+  applyLang();                                // re-renders cx.* -> cm.* / cd.* text
+}
 document.body.classList.add('menu-open');
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -171,9 +190,9 @@ function t(key, vars) {
    RENDERER / SCENE / CAMERA
    ===================================================================== */
 const renderer = new THREE.WebGLRenderer({
-  canvas: $('game'), antialias: !isTouch, powerPreference: 'high-performance',
+  canvas: $('game'), antialias: !isMobileDevice, powerPreference: 'high-performance',
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, isMobileDevice ? 1.5 : 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
@@ -189,7 +208,7 @@ scene.environmentIntensity = 0.45;
 const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.5, 1200);
 
 // Post-processing (neon bloom) — skipped on touch devices for performance
-const useBloom = !isTouch;
+const useBloom = !isMobileDevice;
 let composer = null;
 if (useBloom) {
   composer = new EffectComposer(renderer);
@@ -1844,12 +1863,17 @@ $('pause-restart').addEventListener('click', () => startGame(0));
 $('mute').addEventListener('click', (e) => { setMuted(!muted); e.currentTarget.blur(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 // Rotating the phone drops every finger on the controls, so pause instead of letting the jet fly on blind.
-if (isTouch) {
+if (isMobileDevice) {
   const mq = matchMedia('(orientation: portrait)'), onRotate = () => pause();
   if (mq.addEventListener) mq.addEventListener('change', onRotate); else if (mq.addListener) mq.addListener(onRotate);
 }
-// Hybrid laptops / tablets with a mouse: switch the touch layout on the first real finger tap.
-addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') document.body.classList.add('touch'); }, { passive: true });
+// Hybrid laptops / tablets: follow whichever input the player actually uses.
+addEventListener('keydown', (e) => { if (e.isTrusted) setControlMode(false); }, { passive: true });
+addEventListener('touchstart', () => { if (navigator.maxTouchPoints > 0) setControlMode(true); }, { passive: true });
+addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') setControlMode(true);
+  else if (e.pointerType === 'mouse') setControlMode(false);   // optional: a real mouse click returns to desktop UI
+}, { passive: true });
 
 /* =====================================================================
    CAMERA / WORLD / HUD
