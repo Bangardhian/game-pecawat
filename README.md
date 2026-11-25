@@ -2,7 +2,7 @@
 
 A 3D browser game built with **Three.js** and plain JavaScript, with no build step and no game engine. Pilot a fighter over a neon city, survive four waves of hostile drones, then take down the **Overlord** boss. Collect crystals, repaint your ship and upgrade it in the garage. It plays on desktop (keyboard) and on phones and tablets (touch).
 
-**[▶ Play the live demo](https://cybermech-flight.netlify.app)**
+**[▶ Play the live demo](https://mech-flighcyber.netlify.app/)**
 
 <!-- Add a screenshot or GIF here, e.g. ![Gameplay](docs/gameplay.png) -->
 
