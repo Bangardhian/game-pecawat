@@ -80,12 +80,7 @@ const isMobileDevice =
   (navigator.maxTouchPoints > 0 && _mq('(hover: none) and (pointer: coarse)')  // small touch-only viewport
      && Math.min(innerWidth, innerHeight) <= 820);
 
-// Debug override: index.html?controls=keyboard  or  index.html?controls=touch
-const _forced = new URLSearchParams(location.search).get('controls');
-let isTouch = _forced === 'touch' ? true : _forced === 'keyboard' ? false : isMobileDevice;   // laptops default to keyboard
-console.info('[input-mode]', { isMobileDevice, isTouch, maxTouchPoints: navigator.maxTouchPoints,
-  uaMobile: navigator.userAgentData?.mobile, coarse: _mq('(pointer: coarse)'), hoverNone: _mq('(hover: none)'),
-  viewport: innerWidth + 'x' + innerHeight });
+let isTouch = isMobileDevice;                 // desktop/keyboard by default on laptops
 document.body.classList.toggle('touch', isTouch);
 
 // Switch control scheme at runtime and refresh the instruction text.
